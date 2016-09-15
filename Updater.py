@@ -121,5 +121,5 @@ def updateDB():
     return
     
 insertDB()
-#updateDB()
+updateDB()
 
