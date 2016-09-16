@@ -29,8 +29,7 @@ def alreadyInSQL():
     cursor.execute("SHOW TABLES")  
     rawlist = cursor.fetchall()
     for i in range(len(rawlist)):
-        tickerlist.append(rawlist[i][0].upper())
-    #cursor.close()
+        tickerlist.append(sqlDecode(rawlist[i][0]).upper())
     return tickerlist
     
 
@@ -45,6 +44,13 @@ def timeFormat(timelist):
             dates.append((datetime.datetime.fromtimestamp(newTimeStamp) + datetime.timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S'))
     return dates
 
+def sqlEncode(ticker):
+    ticker = ticker.replace('.', '1').replace('^', '2')
+    return ticker
+    
+def sqlDecode(ticker):
+    ticker = ticker.replace('1', '.').replace('2', '^')
+    return ticker
 
 def changeCalc(df):
     thatsnotchange = [0]
@@ -55,7 +61,7 @@ def changeCalc(df):
 
 def downloader(ticker, action):
     if action == 'update':
-        df2 = pd.read_sql_query('SELECT * FROM `%s` order by `index` desc limit 1' % ticker, cnx)
+        df2 = pd.read_sql_query('SELECT * FROM `%s` order by `index` desc limit 1' % sqlEncode(ticker), cnx)
         a = datetime.datetime.now() - df2.date
         url='https://www.google.com/finance/getprices?i=60&p=%(1)sd&f=d,o,h,l,c,v&df=cpct&q=%(2)s' % {"1" : a[0].days+1, "2" : ticker.upper()}
         urllib.urlretrieve(url, downloadpath % ticker)
@@ -87,7 +93,7 @@ def updater(ticker, action):
         print('No new data in %s' % ticker.upper())
         return
     else:
-        df.to_sql(name = "\"%s\"" % ticker.lower(), con=cnx, flavor='mysql', if_exists='append')
+        df.to_sql(name = '%s' % sqlEncode(ticker), con=cnx, flavor='mysql', if_exists='append')
         print('%(1)s new lines written to %(2)s' % {"1" : len(df.index), "2" : ticker.upper()})
         return
         
@@ -105,10 +111,11 @@ def insertDB():
     tmp = alreadyInSQL()
     tickerlist = [x for x in tickerlist if x not in tmp]
     print('Initiating insert of %s tickers into SQL Database' % len(tickerlist))
-    for ticker in tickerlist[530:]:
+    for ticker in tickerlist:
         updater(ticker, 'insert')
         print('%(1)s out of %(2)s insert operations complete.' % {"1" : tickerlist.index(ticker), "2" : len(tickerlist)})
         print '***'
+    print tickerlist
     return
     
 def updateDB():
@@ -121,5 +128,5 @@ def updateDB():
     return
     
 insertDB()
-updateDB()
+#updateDB()
 
