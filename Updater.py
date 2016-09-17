@@ -8,8 +8,45 @@ import mysql.connector
 from mysql.connector import errorcode
 import sqlalchemy
 import datetime
+import applescript
+from pandas.parser import CParserError
 
-
+VPNswitch = applescript.AppleScript('''
+    REMINDER WRITE IN DISCONNECT AT END
+    
+    on Disconnect()
+        tell application "Tunnelblick"
+            disconnect all
+        end tell
+    
+    on California()
+        tell application "Tunnelblick"
+            disconnect all
+            delay 10
+            connect "US Midwest"
+            get state of first configuration where name = "US Midwest"
+            repeat until result = "CONNECTED"
+                delay 1
+                get state of first configuration where name = "US Midwest"
+            end repeat
+        end tell
+        return "Midwest"
+    end California
+    
+    on Midwest()
+        tell application "Tunnelblick"
+            disconnect all
+            delay 10
+            connect "US California"
+            get state of first configuration where name = "US California"
+            repeat until result = "CONNECTED"
+                delay 1
+                get state of first configuration where name = "US California"
+            end repeat
+        end tell
+        return "California"
+    end Midwest
+''')
 
 downloadpath = '/Users/Red/Google Drive/Python Projects/Stocks2/Downloaded/%s.csv'
 
@@ -24,6 +61,7 @@ except mysql.connector.Error as err:
     print(err)
 cursor = cnx.cursor()
  
+
 def alreadyInSQL():
     tickerlist = []
     cursor.execute("SHOW TABLES")  
@@ -44,13 +82,16 @@ def timeFormat(timelist):
             dates.append((datetime.datetime.fromtimestamp(newTimeStamp) + datetime.timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S'))
     return dates
 
+
 def sqlEncode(ticker):
     ticker = ticker.replace('.', '1').replace('^', '2')
     return ticker
     
+
 def sqlDecode(ticker):
     ticker = ticker.replace('1', '.').replace('2', '^')
     return ticker
+
 
 def changeCalc(df):
     thatsnotchange = [0]
@@ -62,7 +103,7 @@ def changeCalc(df):
 def downloader(ticker, action):
     if action == 'update':
         df2 = pd.read_sql_query('SELECT * FROM `%s` order by `index` desc limit 1' % sqlEncode(ticker), cnx)
-        a = datetime.datetime.now() - df2.date
+        a = datetime.datetime.now() - pd.to_datetime(df2.date)
         url='https://www.google.com/finance/getprices?i=60&p=%(1)sd&f=d,o,h,l,c,v&df=cpct&q=%(2)s' % {"1" : a[0].days+1, "2" : ticker.upper()}
         urllib.urlretrieve(url, downloadpath % ticker)
         return df2.date[0]
@@ -72,17 +113,27 @@ def downloader(ticker, action):
         return
     
 
-def updater(ticker, action):
+def updater(ticker, action, VPN):
     cutdate = downloader(ticker, action)
     try:
         df = pd.read_csv(downloadpath % ticker, skiprows=7, header=None)
-    except:
+    except ValueError:
         print("Could not download %s from Google" % ticker)
+        return
+    except CParserError:
+        print("Google has banned your IP, switching VPN servers now.")
+        VPN = VPNswitch.call(VPN)
+        try:
+            df = pd.read_csv(downloadpath % ticker, skiprows=7, header=None)
+        except:
+            print("Could not download %s. Unknown error." % ticker)
+            return
         return
     df.columns = ['date','close','high','low','open','volume']
     df.date = timeFormat(list(df.date))
     df = df.set_index(pd.DatetimeIndex(df['date']))
     df['change'] = changeCalc(df)
+    os.remove(downloadpath % ticker)
     if action == 'update':
         try:
             df = df.loc[cutdate:]
@@ -110,23 +161,30 @@ def insertDB():
     tickerlist = tickerlist +  tickerlist2
     tmp = alreadyInSQL()
     tickerlist = [x for x in tickerlist if x not in tmp]
+    VPN = VPNswitch.call('Midwest')
     print('Initiating insert of %s tickers into SQL Database' % len(tickerlist))
     for ticker in tickerlist:
-        updater(ticker, 'insert')
+        updater(ticker, 'insert', VPN)
         print('%(1)s out of %(2)s insert operations complete.' % {"1" : tickerlist.index(ticker), "2" : len(tickerlist)})
         print '***'
     print tickerlist
     return
     
+
 def updateDB():
     tickerlist = alreadyInSQL()
+    print 'Connecting to VPN server'
+    VPN = VPNswitch.call('Midwest')
     print('Initiating update of %s tickers in SQL Database' % len(tickerlist))
-    for ticker in tickerlist:
-        updater(ticker, 'update')
+    for ticker in tickerlist[3300:]:
+        print ticker
+        updater(ticker, 'update', VPN)
         print('%(1)s out of %(2)s update operations complete.' % {"1" : tickerlist.index(ticker), "2" : len(tickerlist)})
         print '***'
+    VPNswitch.call('Disconnect')
+    print 'Update complete. Disconnecting from VPN server'
     return
     
-insertDB()
-#updateDB()
+#insertDB()
+updateDB()
 
