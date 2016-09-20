@@ -12,12 +12,11 @@ import applescript
 from pandas.parser import CParserError
 
 VPNswitch = applescript.AppleScript('''
-    REMINDER WRITE IN DISCONNECT AT END
-    
     on Disconnect()
         tell application "Tunnelblick"
             disconnect all
         end tell
+    end Disconnect
     
     on California()
         tell application "Tunnelblick"
@@ -176,7 +175,7 @@ def updateDB():
     print 'Connecting to VPN server'
     VPN = VPNswitch.call('Midwest')
     print('Initiating update of %s tickers in SQL Database' % len(tickerlist))
-    for ticker in tickerlist[3300:]:
+    for ticker in tickerlist:
         print ticker
         updater(ticker, 'update', VPN)
         print('%(1)s out of %(2)s update operations complete.' % {"1" : tickerlist.index(ticker), "2" : len(tickerlist)})
