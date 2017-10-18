@@ -50,7 +50,7 @@ VPNswitch = applescript.AppleScript('''
 downloadpath = '/Users/Red/Google Drive/Python Projects/Stocks2/Downloaded/%s.csv'
 
 try:
-  cnx = mysql.connector.connect(user='Scrambles', password='6c0f1c444f', host='192.168.1.121', database='stocks')
+  cnx = mysql.connector.connect(user='___', password='___', host='___', database='stocks')
 except mysql.connector.Error as err:
   if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
     print("Something is wrong with your user name or password")
